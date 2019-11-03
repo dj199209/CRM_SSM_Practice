@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.dj.dao.DictMapper">
+<select id="findDictCode" parameterType="string" resultType="com.dj.pojo.BaseDict">
+		select * from base_dict a WHERE a.dict_enable=1 and a.dict_type_code=#{code}  ORDER BY a.dict_sort
+	</select>
+</mapper>
