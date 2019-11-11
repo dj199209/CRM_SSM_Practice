@@ -1,5 +1,9 @@
 # CRM_SSM练习
 **关键字** 
+
+需要改进:需要优化jar部分
+
+需要改进传入出值为查询对应的类别部分运用配置文件传入
 ***
 ## 1 搭建初始环境
 ### 1.1 新建web项目
@@ -407,14 +411,378 @@ if (vo.getCustName()!=null) {
 
 ### 2.2 客户列表展示
 
-通过传入一个对象查询出一个pojo对象customer
+通过传入`QueryVo`对象查询出`Customer`对象返回
+通过传入`QueryVo`对象查询出`integer`的整数
 
 #### 2.2.1 dao层
+(1) 数据库编写查询返回值list列表
 
+- 书写初步查询查出对应的数据
+```sql
+SELECT * from customer a
+LEFT JOIN base_dict b on a.cust_source=b.dict_id
+LEFT JOIN base_dict c ON a.cust_industry=b.dict_id
+LEFT JOIN base_dict d ON a.cust_level= d.dict_id
+```
+![](img/2019-11-11-20-50-28.png)
+![](img/2019-11-11-20-51-35.png)
+- 选择需要查询的数据内容并且重命名行内容
+![](img/2019-11-11-21-09-23.png)
+```sql
+SELECT a.cust_id ,a.cust_name,
+b.dict_item_name cust_source,
+c.dict_item_name cust_industry,
+d.dict_item_name cust_level,
+a.cust_linkman,
+a.cust_phone,
+a.cust_mobile,
+a.cust_zipcode,
+a.cust_address,
+a.cust_createtime
+from customer a
+LEFT JOIN base_dict b on a.cust_source=b.dict_id
+LEFT JOIN base_dict c ON a.cust_industry=b.dict_id
+LEFT JOIN base_dict d ON a.cust_level= d.dict_id
+```
+- 写入输入数据的`where`查询语句
+```sql
+WHERE a.cust_name LIKE '%?%' a.cust_source=? AND a.cust_industry AND a.cust_level=?
+```
+- 分页limt
+`LIMIT 0,10`
+
+(2) 将数sql语句写入`CustomerMapper.xml`文件内
+- `id`为调用的方法名
+- `parameterType`为传入数据的的类型
+- `resultType`为返回值类型
+- `<include>` 标签导入where重复片段
+```xml
+	<select id="findCustomerVo" parameterType="com.dj.pojo.QueryVo"
+		resultType="com.dj.pojo.Customer">
+		SELECT 
+		a.cust_id,
+		a.cust_name,
+		b.dict_item_name cust_source,
+		c.dict_item_name cust_industry,
+		d.dict_item_name cust_level,
+		cust_linkman,
+		a.cust_phone,
+		a.cust_mobile
+		a.cust_zipcode,
+		a.cust_address,
+		a.cust_createtime
+		FROM
+		customer a
+		LEFT
+		JOIN base_dict b ON a.
+		cust_source=b.dict_id
+		LEFT JOIN
+		base_dict c on
+		a.cust_industry=c.dict_id
+		LEFT JOIN base_dict d ON
+		a.cust_level=d.dict_id
+		<include refid="customer_where"></include>
+		LIMIT #{start},#{size}
+	</select>
+```
+`where`的重复片段用`<include`来导入
+```xml
+	<sql id="customer_where">
+		<where>
+			<if test="custName !=null and custName !=''">
+				a.cust_name like '%${custName}%'
+			</if>
+			<if test="custSource !=null and custSource !=''">
+				and a.cust_source=#{custSource}
+			</if>
+			<if test="custIndustry !=null and custIndustry !=''">
+				and a.cust_industry=#{custIndustry}
+			</if>
+			<if test="custLevel !=null and custLevel !=''">
+				and a.cust_level=#{custLevel}
+			</if>
+		</where>
+	</sql>
+```
+
+(3) 通过sql语句查询出存在的数值,为后期的分页做准备
+```sql
+SELECT count(*)
+		FROM customer a
+		LEFT
+		JOIN base_dict b ON a.
+		cust_source=b.dict_id
+		LEFT JOIN base_dict c on
+		a.cust_industry=c.dict_id
+		LEFT JOIN base_dict d ON
+		a.cust_level=d.dict_id
+```
+(4)  将sql语句写入`CustomerMapper.xml`文件内还是通过`include`标签来写入数据
+```xml
+<select id="findCustomerVoCount"
+		parameterType="com.dj.pojo.QueryVo" resultType="integer">
+		SELECT count(*)
+		FROM customer a
+		LEFT
+		JOIN base_dict b ON a.
+		cust_source=b.dict_id
+		LEFT JOIN base_dict c on
+		a.cust_industry=c.dict_id
+		LEFT JOIN base_dict d ON
+		a.cust_level=d.dict_id
+		<include refid="customer_where"></include>
+	</select>
+```
+(5)书写dao`CustomerMapper.java`层接口
+```java
+	public List<Customer> findCustomerVo(QueryVo vo);
+	public Integer findCustomerVoCount(QueryVo vo);
+```
 #### 2.2.2 service层
+(1) interface层
+```java
+	public List<Customer> findCustomerVo(QueryVo vo);
+	public Integer findCustomerVoCount(QueryVo vo);
+```
+(2) 实现层
+```java
+	@Override
+	public List<Customer> findCustomerVo(QueryVo vo) {
+		List<Customer> list = customerMapper.findCustomerVo(vo);
+		return list;
+	}
+	@Override
+	public Integer findCustomerVoCount(QueryVo vo) {
+		Integer count = customerMapper.findCustomerVoCount(vo);
+		return count;
+	}
+```
 
 #### 2.2.3 controller层
+(1) 设置传入vo部分的数据
+- 页码部分
+```java
+	if (vo.getPage()==null) {
+			vo.setPage(1);
+		}
+	//设置启始跳数
+	vo.setStart((vo.getPage()-1) * vo.getSize());
+```	
+(2) 返回值部分
+```java
+List<Customer> customerList = customerService.findCustomerVo(vo);
+Integer count = customerService.findCustomerVoCount(vo);
+```
+(3)页面部分_此处导入了一个黑马写的jar包
+```java
+	Page<Customer> page = new Page<>();//new一个jar包对象
+	page.setSize(vo.getSize());//设置每页显示数
+	page.setPage(vo.getPage());//设置但前夜数
+	page.setTotal(count);//数据总页数
+	page.setRows(customerList);//设置当前列表
+	model.addAttribute("page", page);
+```
 
 ### 2.3 修改客户信息
+- 通过id拿去数据
+- 通过`sql语句的` `Updata`语句更新数据
+#### 2.3.1通过id弹出修改框
+**(1) dao层**
+
+- sql语句(通过id值展现数据)
+- 方法名`id` 为`updateData`
+- 传入值`parameterType`为`long`
+- 返回值`parameterType`为`com.dj.pojo.Customer`
+```xml
+<select id="updateData" parameterType="long"
+	resultType="com.dj.pojo.Customer">
+	SELECT * from customer WHERE cust_id=#{id}
+</select>
+```
+- interface中书写方法
+```java
+public Customer updateData(Long id) ;
+```
+**(2) service层**
+- interface
+  ```java
+	public Customer updateData(Long id) ;
+  ```
+
+- 实现
+```java
+	@Override
+	public Customer updateData(Long id) {
+		Customer customer = customerMapper.updateData(id);
+		return customer;
+	}
+```
+
+**(3) controller层**
+```java
+@RequestMapping("/editUpdate")
+	@ResponseBody
+	public Customer editUpdate(Long id) {
+		Customer customer = customerService.updateData(id);
+		return customer;
+	}
+```
+**(4) web层**
+```js
+	function editCustomer(id) {
+			$.ajax({
+				type:"get",
+				url:"<%=basePath%>customer/editUpdate.action",
+				data:{"id":id},
+				success:function(data) {
+					$("#edit_cust_id").val(data.cust_id);
+					$("#edit_customerName").val(data.cust_name);
+					$("#edit_customerFrom").val(data.cust_source)
+					$("#edit_custIndustry").val(data.cust_industry)
+					$("#edit_custLevel").val(data.cust_level)
+					$("#edit_linkMan").val(data.cust_linkman);
+					$("#edit_phone").val(data.cust_phone);
+					$("#edit_mobile").val(data.cust_mobile);
+					$("#edit_zipcode").val(data.cust_zipcode);
+					$("#edit_address").val(data.cust_address);
+					
+				}
+			});
+		}
+```
+#### 2.3.2通过传入修改内容更新数据库内容
+**(1) dao层**
+```sql
+UPDATE customer
+SET 
+cust_name=?,
+cust_source=?,
+cust_industry=?,
+cust_level=?,
+cust_linkman=?,
+cust_phone=?,
+cust_mobile=?,
+cust_zipcode=?,
+cust_address=?
+WHERE
+cust_id=?
+```
+-xml文件运用`<set>`标签
+```xml
+<update id="updateCustomerById"
+		parameterType="com.dj.pojo.Customer">
+		UPDATE customer
+		<set>
+			<if test="cust_name != null and cust_name !=''">
+				cust_name=#{cust_name},
+			</if>
+			<if test="cust_source != null and cust_source !=''">
+				cust_source=#{cust_source},
+			</if>
+			<if test="cust_industry != null and cust_industry !=''">
+				cust_industry=#{cust_industry},
+			</if>
+			<if test="cust_level != null and cust_level !=''">
+				cust_level=#{cust_level},
+			</if>
+			<if test="cust_linkman != null  and cust_linkman !=''">
+				cust_linkman=#{cust_linkman},
+			</if>
+			<if test="cust_phone != null and cust_phone !=''">
+				cust_phone=#{cust_phone},
+			</if>
+			<if test="cust_mobile != null and cust_mobile !=''">
+				cust_mobile=#{cust_mobile},
+			</if>
+			<if test="cust_zipcode != null  and  cust_zipcode!=''">
+				cust_zipcode=#{cust_zipcode},
+			</if>
+			<if test="cust_address != null and cust_address !=''">
+				cust_address=#{cust_address}
+			</if>
+		</set>
+		WHERE cust_id=#{cust_id}
+	</update>
+```
+- 接口类
+```java
+public void updateCustomerById(Customer customer);
+```
+**(2) service层**
+
+- interface
+```java
+	public void updateCustomerById(Customer customer);
+```
+- 实现类
+```java
+	@Override
+	public void updateCustomerById(Customer customer) {
+		customerMapper.updateCustomerById(customer);;
+	}
+```
+
+**(3) controller层**
+```java
+@RequestMapping("/update")
+	public String update(Customer customer) {
+		customerService.updateCustomerById(customer);
+		return"customer";
+	}
+```
+**(4) web层**
+```js
+function updateCustomer() {
+			$.post("<%=basePath%>customer/update.action",$("#edit_customer_form").serialize(),function(data){
+				alert("客户信息更新成功！");
+				window.location.reload();
+			});
+		}
+```
 
 ### 2.4 删除客户
+
+- 通过传入id值删除数据
+  
+**(1) dao层**
+- xml使用`<delete>`标签
+```xml
+<delete id="deletCustomerById" parameterType="long">
+		DELETE from customer WHERE cust_id=#{cust_id}
+	</delete>
+```
+- dao层接口
+```java
+public void deletCustomerById(Long id);
+```
+**(2) service层**
+- interface
+```java
+public void deletCustomerById(Long id);
+```
+- 实现类
+```java
+@Override
+	public void deletCustomerById(Long id) {
+		customerMapper.deletCustomerById(id);
+	}
+```
+**(3) controller层**
+```java
+	@RequestMapping("/delete")
+	public String delete(Long id) {
+		customerService.deletCustomerById(id);
+		return"customer";
+	}
+```
+**(4) web层**
+```js
+	function deleteCustomer(id) {
+			if(confirm('确实要删除该客户吗?')) {
+				$.post("<%=basePath%>customer/delete.action",{"id":id},function(data){
+					alert("客户删除更新成功！");
+					window.location.reload();
+				});
+			}
+		}
+```
