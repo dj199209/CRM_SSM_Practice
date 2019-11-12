@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.dj.dao.CustomerDao">
+	<sql id="find_where">
+		<where>
+			<if test=" custName !=null and custName !='' ">
+				a.cust_name LIKE '%${custName}%'
+			</if>
+			<if test=" custSource !=null and custSource !=''">
+				AND cust_source=#{custSource}
+			</if>
+			<if test=" custIndustry !=null and custIndustry !=''">
+				AND a.cust_industry=#{custIndustry}
+			</if>
+			<if test=" custLevel !=null and custLevel !='' ">
+				AND a.cust_level=#{custLevel}
+			</if>
+		</where>
+	</sql>
+	<select id="findCustomerByVo"
+		parameterType="com.dj.pojo.QueryVo" resultType="com.dj.pojo.Customer">
+		<!--通过传入查询条件查询出列表数据 -->
+		SELECT
+		a.cust_id,
+		a.cust_name,
+		b.dict_item_name cust_source,
+		c.dict_item_name cust_industry,
+		d.dict_item_name cust_level,
+		a.cust_linkman,
+		a.cust_phone,
+		a.cust_mobile,
+		a.cust_zipcode,
+		a.cust_address,
+		a.cust_createtime
+		FROM customer a
+		LEFT JOIN base_dict b
+		ON a.cust_source=b.dict_id
+		LEFT JOIN base_dict c ON
+		a.cust_industry=c.dict_id
+		LEFT JOIN base_dict d ON a.cust_level =
+		d.dict_id
+		<include refid="find_where"></include>
+		LIMIT #{start},#{size}
+	</select>
+	<select id="findCustomerByVoCount"
+		parameterType="com.dj.pojo.QueryVo" resultType="integer">
+		SELECT
+		COUNT(*)
+		FROM customer a
+		LEFT JOIN base_dict b ON
+		a.cust_source=b.dict_id
+		LEFT JOIN base_dict c ON
+		a.cust_industry=c.dict_id
+		LEFT JOIN base_dict d ON a.cust_level =
+		d.dict_id
+		<include refid="find_where"></include>
+	</select>
+	<select id="updateDateById" parameterType="long"
+		resultType="com.dj.pojo.Customer">
+		SELECT * from customer a WHERE a.cust_id=#{id}
+	</select>
+	<update id="updateCustomer" parameterType="com.dj.pojo.Customer">
+		UPDATE customer
+		<set>
+			<if test="cust_name !=null and cust_name !=''">
+				cust_name=#{cust_name},
+			</if>
+			<if test="cust_source !=null and cust_source !=''">
+				cust_source=#{cust_source},
+			</if>
+			<if test="cust_industry !=null and cust_industry !=''">
+				cust_industry=#{cust_industry},
+			</if>
+			<if test="cust_level !=null and cust_level !=''">
+				cust_level=#{cust_level},
+			</if>
+			<if test="cust_linkman !=null and cust_linkman !=''">
+				cust_linkman=#{cust_linkman},
+			</if>
+			<if test="cust_phone !=null and cust_phone !=''">
+				cust_phone=#{cust_phone},
+			</if>
+			<if test="cust_mobile !=null and cust_mobile !=''">
+				cust_mobile=#{cust_mobile},
+			</if>
+			<if test="cust_zipcode !=null and cust_zipcode !=''">
+				cust_zipcode=#{cust_zipcode},
+			</if>
+			<if test="cust_address !=null and cust_address !=''">
+				cust_address=#{cust_address},
+			</if>
+		</set>
+		WHERE
+		cust_id=#{cust_id}
+	</update>
+	<delete id="deleteCsutomerById" parameterType="long">
+	DELETE FROM customer WHERE cust_id=#{id}
+	</delete>
+</mapper>
